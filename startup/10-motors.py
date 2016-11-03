@@ -120,7 +120,7 @@ class FractionCollector(Device):
 
 sample_pump = SamplePump('XF:17BMA-ES:1{Pmp:02}',
                          name='sample_pump',
-                         read_attrs=['vel', 'vol', 'sts'])
+                         read_attrs=['vel', 'sts'])
 fraction_collector = SamplePump('', name='fraction_collector')
 
 class Pump(Device):
