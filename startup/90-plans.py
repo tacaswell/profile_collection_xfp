@@ -1,4 +1,4 @@
-def invivo_dr(flow_rate, pre_vol, exp_vol):
+def invivo_dr(flow_rate, pre_vol, exp_vol, *, md=None):
     '''Run dose-response experiment
 
     Parameters
@@ -21,7 +21,14 @@ def invivo_dr(flow_rate, pre_vol, exp_vol):
     # TODO add monitor for pumps?
     # TODO add monitoring for fraction collector
 
-    @bp.run_decorator(md={'plan_name': 'in_vivo'})
+    if md is None:
+        md = {}
+
+    md['flow_rate'] = flow_rate
+    md['pre_exp_vol'] = pre_vol
+    md['exp_vol'] = exp_vol
+
+    @bp.run_decorator(md=ChainMap(md, {'plan_name': 'invivo_dr'}))
     def inner_plan():
         # prevent pausing
         yield from bp.clear_checkpoint()
@@ -33,27 +40,35 @@ def invivo_dr(flow_rate, pre_vol, exp_vol):
         # flow some sample through
         yield from bp.kickoff(sample_pump, wait=True)
         print("== started the flow pump")
+
         yield from bp.trigger_and_read(dets)
 
         print("== flowing pre-exposure sample for {}mL ({:.1f}s)".format(pre_vol, pre_exp_time))
         yield from bp.sleep(pre_exp_time)
         print("== Done flowing pre-exposure sample")
+
+        yield from bp.trigger_and_read(dets)
+
         #open the shutter
         yield from bp.abs_set(shutter, 'Open', wait=True)
         print("== Shutter open")
+
         yield from bp.trigger_and_read(dets)
 
         print("== flowing exposure sample for {}ml ({:.1f}s)".format(exp_vol, exp_time))
         # collect some sample with beam
         yield from bp.sleep(exp_time)
 
+        yield from bp.trigger_and_read(dets)
+
         # close the shutter and stop flowing the sample
         yield from bp.abs_set(shutter, 'Close', wait=True)
         yield from bp.complete(sample_pump, wait=True)
 
-        print("done!")
-
         yield from bp.trigger_and_read(dets)
+
+        print("== done!")
+
 
     def clean_up():
         yield from bp.abs_set(shutter, 'Close', wait=True)
