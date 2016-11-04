@@ -84,7 +84,9 @@ class SamplePump(Device):
     sts = Cpt(EpicsSignal, 'Sts:Flag-Sts', string=True)
 
     def kickoff(self):
-        st = DeviceStatus(self)
+        # The timeout controls how long to wait for the pump
+        # to report it started working before assuming it is broken
+        st = DeviceStatus(self, timeout=1.5)
         enums = self.sts.enum_strs
         def inner_cb(value, old_value, **kwargs):
             old_value, value = enums[int(old_value)], enums[int(value)]
