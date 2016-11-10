@@ -222,6 +222,7 @@ class Pump(Device):
         self.run.set('Stop')
 
 pump1 = Pump('XF:17BM-ES:1{Pmp:01}', name='food_pump')
+spump = Pump('XF:17BM-ES:1{Pmp:01}', name='syringe_pump')
 
 #pbslits = Slits('XF:17BMA-OP{Slt:PB-Ax:', name='pbslits')
 #feslits1 = TopOutSlits('FE:C17B-OP{Slt:1-Ax:', name='feslits1')
