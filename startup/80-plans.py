@@ -8,7 +8,7 @@ def pump_plan(volume, rate):
 def run_the_pump(pmp, **kwargs):
     yield from bp.configure(pmp, kwargs)
     yield from bp.abs_set(shutter, 'open', wait=True)
-    yield from bp.kickofff(pmp, group='pump_started')
+    yield from bp.kickoff(pmp, group='pump_started')
     yield from bp.wait(group='pump_started')
     yield from bp.complete(pmp, group='pump_done')
     yield from bp.wait(group='pump_done')
