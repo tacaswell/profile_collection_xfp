@@ -67,8 +67,9 @@ def invivo_dr(flow_rate, pre_vol, exp_vol, *, md=None):
         yield from bp.trigger_and_read(dets)
 
         # close the shutter and stop flowing the sample
-        yield from bp.abs_set(shutter, 'Close', wait=True)
         yield from bp.complete(sample_pump, wait=True)
+        yield from bp.abs_set(shutter, 'Close', wait=True)
+        
 
         yield from bp.trigger_and_read(dets)
 
@@ -76,7 +77,8 @@ def invivo_dr(flow_rate, pre_vol, exp_vol, *, md=None):
 
 
     def clean_up():
-        yield from bp.abs_set(shutter, 'Close', wait=True)
         yield from bp.complete(sample_pump, wait=True)
+        yield from bp.abs_set(shutter, 'Close', wait=True)
+        
 
     yield from bp.finalize_wrapper(inner_plan(), clean_up())
