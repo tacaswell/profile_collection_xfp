@@ -50,3 +50,6 @@ RE = gs.RE  # convenience alias
 # import logging
 # ophyd.logger.setLevel(logging.DEBUG)
 # logging.basicConfig(level=logging.DEBUG)
+
+# nice format string to use in various places
+_time_fmtstr = '%Y-%m-%d %H:%M:%S'

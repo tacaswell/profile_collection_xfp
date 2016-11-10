@@ -1,4 +1,5 @@
-_time_fmtstr = '%Y-%m-%d %H:%M:%S'
+import datetime
+
 
 def invivo_dr(flow_rate, pre_vol, exp_vol, *, md=None):
     '''Run dose-response experiment

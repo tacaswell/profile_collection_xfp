@@ -2,15 +2,16 @@ from ophyd import (EpicsMotor, Device,
                    Component as Cpt, EpicsSignal,
                    EpicsSignalRO, DeviceStatus)
 import bluesky.plans as bp
-
+import time
+import datetime
 
 class TwoButtonShutter(Device):
     # TODO this needs to be fixed in EPICS as these names make no sense
     # the vlaue comingout of the PV do not match what is shown in CSS
-    open_cmd = Cpt(EpicsSignal, 'Cmd:In-Cmd')
+    open_cmd = Cpt(EpicsSignal, 'Cmd:In-Cmd', string=True)
     open_val = 'Inserted'
 
-    close_cmd = Cpt(EpicsSignal, 'Cmd:Out-Cmd')
+    close_cmd = Cpt(EpicsSignal, 'Cmd:Out-Cmd', string=True)
     close_val = 'Not Inserted'
 
     status = Cpt(EpicsSignalRO, 'Pos-Sts', string=True)
@@ -34,16 +35,32 @@ class TwoButtonShutter(Device):
         st = self._set_st = DeviceStatus(self)
         enums = self.status.enum_strs
 
-        def shutter_cb(value, **kwargs):
+        def shutter_cb(value, timestamp, **kwargs):
             value = enums[int(value)]
             if value == target_val:
                 self._set_st._finished()
                 self._set_st = None
-                self.satus.clear_cb(shutter_cb)
+                self.status.clear_sub(shutter_cb)
 
+        cmd_enums = cmd_sig.enum_strs                    
+        def cmd_retry_cb(value, timestamp, **kwargs):
+            value = cmd_enums[int(value)]
+            # ts = datetime.datetime.fromtimestamp(timestamp).strftime(_time_fmtstr)
+            # print('sh', ts, val, st)
+            if value == 'None':
+                if not st.done:
+                    time.sleep(.5)
+                    cmd_sig.set(1)
+                    ts = datetime.datetime.fromtimestamp(timestamp).strftime(_time_fmtstr)
+                    print('** ({}) Had to reactuate shutter while {}ing'.format(ts, val))
+                else:
+                    cmd_sig.clear_sub(cmd_retry_cb)
+                    
+        cmd_sig.subscribe(cmd_retry_cb, run=False)        
         cmd_sig.set(1)
         self.status.subscribe(shutter_cb)
 
+        
         return st
 
     def __init__(self, *args, **kwargs):
@@ -89,8 +106,9 @@ class SamplePump(Device):
         st = DeviceStatus(self, timeout=1.5)
         enums = self.sts.enum_strs
         def inner_cb(value, old_value, **kwargs):
-            old_value, value = enums[int(old_value)], enums[int(value)]
 
+            old_value, value = enums[int(old_value)], enums[int(value)]
+            # print('ko', old_value, value, time.time())
             if value == 'Moving':
                 st._finished(success=True)
                 self.sts.clear_sub(inner_cb)
@@ -104,7 +122,7 @@ class SamplePump(Device):
         enums = self.sts.enum_strs
         def inner_cb(value, old_value, **kwargs):
             old_value, value = enums[int(old_value)], enums[int(value)]
-
+            # print('cp', kwargs['timestamp'], old_value, value, value == 'Stopped')
             if value == 'Stopped':
                 st._finished(success=True)
                 self.sts.clear_sub(inner_cb)
