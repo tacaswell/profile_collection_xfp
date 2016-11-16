@@ -8,14 +8,15 @@ import datetime
 class TwoButtonShutter(Device):
     # TODO this needs to be fixed in EPICS as these names make no sense
     # the vlaue comingout of the PV do not match what is shown in CSS
-    open_cmd = Cpt(EpicsSignal, 'Cmd:In-Cmd', string=True)
-    open_val = 'Inserted'
+    open_cmd = Cpt(EpicsSignal, 'Cmd:Opn-Cmd', string=True)
+    open_val = 'Open'
 
-    close_cmd = Cpt(EpicsSignal, 'Cmd:Out-Cmd', string=True)
-    close_val = 'Not Inserted'
+    close_cmd = Cpt(EpicsSignal, 'Cmd:Cls-Cmd', string=True)
+    close_val = 'Not Open'
 
     status = Cpt(EpicsSignalRO, 'Pos-Sts', string=True)
-
+    fail_to_close = Cpt(EpicsSignalRO, 'Sts:FailCls-Sts', string=True)
+    fail_to_open = Cpt(EpicsSignalRO, 'Sts:FailOpn-Sts', string=True)
     # user facing commands
     open_str = 'Open'
     close_str = 'Close'
@@ -42,11 +43,17 @@ class TwoButtonShutter(Device):
                 self._set_st = None
                 self.status.clear_sub(shutter_cb)
 
-        cmd_enums = cmd_sig.enum_strs                    
+        cmd_enums = cmd_sig.enum_strs
+        count = 0
         def cmd_retry_cb(value, timestamp, **kwargs):
+            nonlocal count
             value = cmd_enums[int(value)]
             # ts = datetime.datetime.fromtimestamp(timestamp).strftime(_time_fmtstr)
             # print('sh', ts, val, st)
+            count += 1
+            if count > 5:
+                cmd_sig.clear_sub(cmd_retry_cb)
+                st._finished(success=False)
             if value == 'None':
                 if not st.done:
                     time.sleep(.5)
