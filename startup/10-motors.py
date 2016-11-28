@@ -62,12 +62,12 @@ class TwoButtonShutter(Device):
                     print('** ({}) Had to reactuate shutter while {}ing'.format(ts, val))
                 else:
                     cmd_sig.clear_sub(cmd_retry_cb)
-                    
-        cmd_sig.subscribe(cmd_retry_cb, run=False)        
+
+        cmd_sig.subscribe(cmd_retry_cb, run=False)
         cmd_sig.set(1)
         self.status.subscribe(shutter_cb)
 
-        
+
         return st
 
     def __init__(self, *args, **kwargs):
@@ -169,52 +169,96 @@ class Pump(Device):
         self._complete_st = None
         self.read_attrs = ['delivered']
         self.configuration_attrs = ['diameter', 'infusion_rate', 'infusion_volume']
+    def clear_ko_cb(self):
+        if self._clear_ko_cb is not None:
+            try:
+                self._clear_ko_cb()
+            finally:
+                self._clear_ko_cb = None
+
+    def clear_cp_cb(self):
+        pass
+
+    def reset_state(self):
+        self._kickoff_st = None
 
     def kickoff(self):
-        enums = self.state.enum_strs
+        # house keeping to make sure this is a valid command
         if self._kickoff_st is not None:
             raise RuntimeError('trying to kickoff before previous kickoff done')
-        self._kickoff_st = st = DeviceStatus(self)
-        def inner_cb(value, old_value, **kwargs):
+
+        # set up local caches of pv information
+        enums = self.state.enum_strs
+        target = self.infusion_volume.get()
+
+        # status objects
+        self._complete_st = cp_st = DeviceStatus(self)
+        self._kickoff_st = ko_st = DeviceStatus(self)
+
+
+        def inner_cb_state(value, old_value, **kwargs):
+            '''state changed based callback to identify starting
+            '''
             old_value, value = enums[int(old_value)], enums[int(value)]
 
             if value == 'Interrupted':
-                st._finished(success=False)
-                self.state.clear_sub(inner_cb)
+                ko_st._finished(success=False)
+                self.clear_ko_cb()
 
             if value in {'Infusing', 'Withdrawing'}:
-                st._finished(success=True)
-                self.state.clear_sub(inner_cb)
+                ko_st._finished(success=True)
+                self.clear_ko_cb()
 
-        self.state.subscribe(inner_cb, run=False)
-
-        self.run.set('Run')
-        return st
-
-    def complete(self):
-        st = DeviceStatus(self)
-        enums = self.state.enum_strs
-        if self._kickoff_st is None:
-            raise RuntimeError('must kickoff before completing')
-        if self._complete_st is not None:
-            raise RuntimeError('trying to complete before previous complete done')
-
-        def inner_cb(value, old_value, **kwargs):
+        def inner_complete_cb(value, old_value, **kwargs):
+            '''State based callback to identify finishing
+            '''
             old_value, value = enums[int(old_value)], enums[int(value)]
 
             if value == 'Idle' and old_value != 'Idle':
-                st._finished(success=True)
-                self.state.clear_sub(inner_cb)
-                self._kickoff_st = None
-                self._complete_st = None
+                cp_st._finished(success=True)
+                self.clear_cp_cb()
+                self.reset_state()
 
             if value == 'Interrupted':
-                st._finished(success=False)
-                self.state.clear_sub(inner_cb)
-                self._kickoff_st = None
-                self._complete_st = None
+                cp_st._finished(success=False)
+                self.clear_cp_cb()
+                self.reset_state()
 
-        self.state.subscribe(inner_cb, run=self._kickoff_st.done)
+        def inner_cb_delivered(value, **kwargs):
+            '''volume based call back as a backup'''
+            # TODO make this a smarter check!
+            if abs(value - target) < .015:
+                ko_st._finished(success=True)
+                cp_st._finished(success=True)
+                self.clear_ko_cb()
+                self.clear_cp_cb()
+                self.reset_state()
+
+        def _clear_ko_cb():
+            self.state.clear_sub(inner_cb_state)
+            self.delivered.clear_sub(inner_cb_delivered)
+
+        def _clear_cp_cb():
+            self.state.clear_sub(inner_complete_cb)
+
+        self._clear_ko_cb = _clear_ko_cb
+        self._clear_cp_cb = _clear_cp_cb
+
+
+        self.state.subscribe(inner_cb_state, run=False)
+        self.delivered.subscribe(inner_cb_delivered, run=False)
+        self.state.subscribe(inner_complete_cb, run=False)
+
+        self.run.set('Run')
+        return ko_st
+
+    def complete(self):
+        if self._complete_st is None:
+            raise RuntimeError('trying to complete before kickingoff '
+                               '(or you called complete twice)')
+        st = self._complete_st
+        self._complete_st = None
+        self._kickoff_st = None
         return st
 
     def stop(self, success=False):
@@ -227,6 +271,8 @@ class Pump(Device):
         self._complete_st = None
         self._kickoff_st = None
         self.run.set('Stop')
+
+
 
 pump1 = Pump('XF:17BM-ES:1{Pmp:01}', name='food_pump')
 spump = Pump('XF:17BM-ES:1{Pmp:01}', name='syringe_pump')
