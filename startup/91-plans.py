@@ -48,8 +48,7 @@ def tr_pump(mix_flow_rate, mix_vol, mixing_time, exp_flow_rate, exp_vol, *, md=N
 
         print("== ({}) flowing at {} mL/m".format(datetime.datetime.now().strftime(_time_fmtstr), mix_flow_rate))
         st = yield from bp.complete(spump, wait=False, group='pump complete')
-        print('waiting for pump
- to finish')
+        print('waiting for pump to finish')
         yield from bp.wait('pump complete')
         # open the shutter
         yield from bp.abs_set(shutter, 'Open', wait=True)
