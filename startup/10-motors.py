@@ -156,10 +156,10 @@ class Pump(Device):
     direction = Cpt(EpicsSignal, 'Direction', string=True)
 
     diameter = Cpt(EpicsSignal, 'Diameter_RBV', write_pv='Diameter')
-    infusion_rate = Cpt(EpicsSignal, 'InfusionRate_RBV', write_pv='InfusionRate')
+    infusion_rate = Cpt(AgressiveSignal, 'InfusionRate_RBV', write_pv='InfusionRate')
     run = Cpt(EpicsSignal, 'Run', string=True)
     state = Cpt(EpicsSignalRO, 'State_RBV', string=True)
-    infusion_volume = Cpt(EpicsSignal, 'InfusionVolume_RBV', write_pv='InfusionVolume')
+    infusion_volume = Cpt(AgressiveSignal, 'InfusionVolume_RBV', write_pv='InfusionVolume')
 
     delivered = Cpt(EpicsSignalRO, 'Delivered_RBV')
 
